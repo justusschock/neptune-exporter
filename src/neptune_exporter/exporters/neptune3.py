@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import pyarrow as pa
+import pandas as pd
 from typing import Generator, NewType, Optional, Sequence
 from pathlib import Path
 import neptune_query as nq
@@ -78,7 +79,71 @@ class Neptune3Exporter:
                 type_suffix_in_column_names=True,
             )
         )
-        yield pa.RecordBatch.from_pandas(parameters_df, schema=model.SCHEMA)
+        converted_df = self._convert_parameters_to_schema(parameters_df, project_id)
+        yield pa.RecordBatch.from_pandas(converted_df, schema=model.SCHEMA)
+
+    def _convert_parameters_to_schema(
+        self, parameters_df: pd.DataFrame, project_id: str
+    ) -> pd.DataFrame:
+        """Convert wide parameters DataFrame to long format matching model.SCHEMA."""
+        parameters_df = parameters_df.reset_index()
+
+        # Melt the DataFrame to convert from wide to long format
+        melted_df = parameters_df.melt(
+            id_vars=["custom_run_id"],
+            var_name="attribute_path_type",
+            value_name="value",
+        )
+
+        # Split attribute_path_type into path and type
+        melted_df[["attribute_path", "attribute_type"]] = melted_df[
+            "attribute_path_type"
+        ].str.rsplit(":", 1, expand=True)
+
+        # Create the schema-compliant DataFrame
+        result_df = pd.DataFrame(
+            {
+                "project_id": project_id,
+                "run_id": melted_df["custom_run_id"],
+                "attribute_path": melted_df["attribute_path"],
+                "attribute_type": melted_df["attribute_type"],
+                "step": None,
+                "timestamp": None,
+                "value": melted_df["value"],
+                "int_value": None,
+                "float_value": None,
+                "string_value": None,
+                "bool_value": None,
+                "datetime_value": None,
+                "string_set_value": None,
+                "file_value": None,
+                "histogram_value": None,
+            }
+        )
+
+        # Fill in the appropriate value column based on attribute_type
+        # Use vectorized operations for better performance
+        for attr_type in result_df["attribute_type"].unique():
+            mask = result_df["attribute_type"] == attr_type
+
+            if attr_type == "int":
+                result_df.loc[mask, "int_value"] = result_df.loc[mask, "value"]
+            elif attr_type == "float":
+                result_df.loc[mask, "float_value"] = result_df.loc[mask, "value"]
+            elif attr_type == "string":
+                result_df.loc[mask, "string_value"] = result_df.loc[mask, "value"]
+            elif attr_type == "bool":
+                result_df.loc[mask, "bool_value"] = result_df.loc[mask, "value"]
+            elif attr_type == "datetime":
+                result_df.loc[mask, "datetime_value"] = result_df.loc[mask, "value"]
+            elif attr_type == "string_set":
+                result_df.loc[mask, "string_set_value"] = result_df.loc[mask, "value"]
+            else:
+                raise ValueError(f"Unsupported parameter type: {attr_type}")
+
+        result_df = result_df.drop(columns=["value"])
+
+        return result_df
 
     def download_metrics(
         self,
