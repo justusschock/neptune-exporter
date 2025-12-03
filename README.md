@@ -114,7 +114,7 @@ uv run neptune-exporter export -p "workspace/proj" --exporter neptune2 --data-pa
 ## Data layout on disk
 
 - Parquet path:
-  - Default `./exports/data`
+  - Default: `./exports/data`
   - One directory per project, sanitized for filesystem safety (digest suffix added) but the parquet columns keep the real `project_id`/`run_id`.
   - Each run is split into `run_id_part_<n>.parquet` (Snappy-compressed). Parts roll over around 50 MB compressed.
 - Files path
@@ -130,7 +130,7 @@ All records use `src/neptune_exporter/model.py::SCHEMA`:
 | --- | --- | --- |
 | `project_id` | `string` | Neptune project path, in the form `workspace-name/project-name`. |
 | `run_id` | `string` | Neptune run identifier.<ul><li>Neptune `3.x`: User-chosen or auto-generated, stored in `sys/custom_run_id`.</li><li>Neptune `2.x`: Auto-generated `sys/id`, e.g. `SAN-1`.</li></ul>  |
-| `attribute_path` | `string` | Full attribute path. For example, `metrics/accuracy`, `metrics/loss`, `files/dataset_desc.json`) |
+| `attribute_path` | `string` | Full attribute path. For example, `metrics/accuracy`, `metrics/loss`, `files/dataset_desc.json` |
 | `attribute_type` | `string` | One of: `float`, `int`, `string`, `bool`, `datetime`, `string_set`, `float_series`, `string_series`, `histogram_series`, `file`, `file_series` |
 | `step` | `decimal(18,6)` | Decimal step value, per series/metric/file series |
 | `timestamp` | `timestamp(ms, UTC)` | Populated for time-based records (metrics/series/file series).  Null for parameters and files. |
@@ -193,7 +193,7 @@ All records use `src/neptune_exporter/model.py::SCHEMA`:
   - MLflow/W&B: uploaded as artifacts. File series include the step in the artifact name/path so steps remain distinguishable.
 - **Attribute names**:
   - MLflow: sanitized to allowed chars (alphanumeric + `_-. /`), truncated at 250 chars.
-  - W&B: sanitized to allowed pattern (`^[_a-zA-Z][_a-zA-Z0-9]*$`); invalid chars become `_`, and names are forced to start with a letter/underscore.
+  - W&B: sanitized to allowed pattern (`^[_a-zA-Z][_a-zA-Z0-9]*$`); invalid chars become `_`, and names are forced to start with a letter or underscore.
 
 For details on Neptune attribute types, see the [documentation](https://docs.neptune.ai/attribute_types).
 
