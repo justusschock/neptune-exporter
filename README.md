@@ -1,21 +1,23 @@
 # Neptune Exporter
 
-CLI tool to move Neptune experiments (version 2.x or 3.x) to disk as parquet + files, with an option to load them into MLflow or Weights & Biases.
+Neptune Exporter is a CLI tool to move Neptune experiments (version `2.x` or `3.x`) to disk as parquet and files, with an option to load them into MLflow or Weights & Biases.
 
 ## What it does
 
-- Streams runs from Neptune to local storage; artifacts are downloaded alongside the parquet.
+- Streams runs from Neptune to local storage. Artifacts are downloaded alongside the parquet.
 - Skips runs that were already exported (presence of `part_0.parquet`), making exports resumable.
 - Loads parquet data into MLflow or W&B while preserving run structure (forks, steps, attributes) as closely as possible.
 - Prints a human-readable summary of what is on disk.
 
 ## Requirements
 
-- Python 3.13 (managed via [uv](https://github.com/astral-sh/uv)).
-- Neptune credentials: `NEPTUNE_API_TOKEN` (or pass `--api-token`) and either `--project-ids` or `NEPTUNE_PROJECT`.
+- Python `3.13`, managed via [uv](https://github.com/astral-sh/uv).
+- Neptune credentials:
+  - [API token](https://docs.neptune.ai/api_token/), set with the `NEPTUNE_API_TOKEN` environment variable or the `--api-token` option.
+  - [Project path](https://docs.neptune.ai/projects), set with the `NEPTUNE_PROJECT` environment variable or the `--project-ids` option.
 - Target credentials when loading:
-  - MLflow: `MLFLOW_TRACKING_URI` or `--mlflow-tracking-uri`.
-  - W&B: `WANDB_ENTITY`/`--wandb-entity` and `WANDB_API_KEY`/`--wandb-api-key`.
+  - MLflow tracking URI, set with `MLFLOW_TRACKING_URI` or `--mlflow-tracking-uri`.
+  - W&B entity and API key, set with `WANDB_ENTITY`/`--wandb-entity` and `WANDB_API_KEY`/`--wandb-api-key`.
 
 Install dependencies in the repo:
 
@@ -29,9 +31,9 @@ Run all CLI commands via uv:
 uv run neptune-exporter --help
 ```
 
-## Quick start
+## Quickstart
 
-1) Export Neptune data to disk (core):
+### 1. Export Neptune data to disk (core):
 
   ```bash
   uv run neptune-exporter export \
@@ -41,34 +43,47 @@ uv run neptune-exporter --help
     --files-path ./exports/files
   ```
 
-Notable options:
+Options:
 
-- `--exporter` (required): `neptune3` or `neptune2` (match your workspace version).
-- `-r/--runs`: Neptune run ID filter, regex supported. In Neptune 3.x run id is user-chosen or auto-generated, stored in `sys/custom_run_id`, in Neptune 2.x it's auto-generated `sys/id`, e.g. `SAN-1`.
-- `-a/--attributes`: One value = regex, multiple values = exact attribute names.
-- `-c/--classes` and `--exclude`: Include/exclude `parameters`, `metrics`, `series`, `files`.
-- `--include-archived-runs`: Include archived/trashed runs.
-- `--api-token`: Pass the token explicitly instead of `NEPTUNE_API_TOKEN`.
-- `--no-progress`, `-v/--verbose`, `--log-file`: Progress/logging controls for the CLI.
+| Option                                   | Description                                                                                                                                                                                                                                                                                   |
+|-------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--exporter` (required)                   | `neptune3` or `neptune2`. Use the version corresponding to your workspace. For help, see the [migration overview](https://docs.neptune.ai/neptune_exporter).                                                                                                                                                                                                                  |
+| `-r`/`--runs`                              | Neptune run ID filter, regex supported.<ul><li>In Neptune `3.x` the run ID is user-chosen or auto-generated, stored in `sys/custom_run_id`.</li><li>In Neptune `2.x` it's the auto-generated `sys/id` (e.g. `SAN-1`).</li></ul>                                                                                                     |
+| `-a`/`--attributes`                        | One value is treated as a regex. Multiple values are treated as exact attribute names.                                                                                                                                                                                                                                   |
+| `-c`/`--classes` and `--exclude`           | Include or exclude certain data types. Arguments: `parameters`, `metrics`, `series`, or `files`.                                                                                                                                                                                                                                   |
+| `--include-archived-runs`                | Include archived/trashed runs.                                                                                                                                                                                                                                                                |
+| `--api-token`                            | Pass the token explicitly instead of using the `NEPTUNE_API_TOKEN` environment variable.                                                                                                                                                                                                      |
+| `--no-progress`, `-v`/`--verbose`, `--log-file` | Progress and logging controls for the CLI.                                                                                                                                                                                                                                                    |
 
-### Export examples
+#### Export examples
 
-- Export everything from a project:  
-  `uv run neptune-exporter export -p "workspace/proj" --exporter neptune3`
-- Export only parameters/metrics from runs matching a pattern:  
-  `uv run neptune-exporter export -p "workspace/proj" --exporter neptune3 -r "RUN-.*" -c parameters -c metrics`
-- Export specific attributes by pattern:  
-  `uv run neptune-exporter export -p "workspace/proj" --exporter neptune3 -a "metrics/accuracy" -a "metrics/loss" -a "config/.*"`
-- Export with Neptune 2.x client and split data/files to different locations:  
-  `uv run neptune-exporter export -p "workspace/proj" --exporter neptune2 --data-path /mnt/fast/exports/data --files-path /mnt/cold/exports/files`
+Export everything from a project:  
+```bash
+uv run neptune-exporter export -p "workspace/proj" --exporter neptune3
+```
 
-2) Inspect what was exported:
+Export only parameters and metrics from runs matching a pattern:
+```bash
+uv run neptune-exporter export -p "workspace/proj" --exporter neptune3 -r "RUN-.*" -c parameters -c metrics
+```
+
+Export specific attributes by pattern:
+```bash
+uv run neptune-exporter export -p "workspace/proj" --exporter neptune3 -a "metrics/accuracy" -a "metrics/loss" -a "config/.*"
+```
+
+Export with Neptune `2.x` client, splitting data and files to different locations:
+```bash
+uv run neptune-exporter export -p "workspace/proj" --exporter neptune2 --data-path /mnt/fast/exports/data --files-path /mnt/cold/exports/files
+```
+
+### 2. Inspect what was exported:
 
   ```bash
   uv run neptune-exporter summary --data-path ./exports/data
   ```
 
-3) Load into a target (optional):
+### 3. (optional) Load into a target:
 
   ```bash
   # MLflow
@@ -88,17 +103,19 @@ Notable options:
   ```
   
   > [!NOTE]
-  > The `--step-multiplier` option converts Neptune’s decimal steps into integers for MLflow/W&B (which only accept ints). If your Neptune steps contain decimals, pick a single multiplier (e.g., `1000` for millisteps) and use it consistently for all loads so every series stays aligned.
+  > MLflow and W&B only accept integers. If your Neptune steps contain decimals, use the `--step-multiplier` option to convert the step values to integers. Pick a single multiplier (e.g. `1000` for millisteps) and use it consistently for all loads so that every series stays aligned.
   > Default is `1` (no scaling).
 
 ## Data layout on disk
 
-- Parquet path (default `./exports/data`):
+- Parquet path:
+  - Default `./exports/data`
   - One directory per project, sanitized for filesystem safety (digest suffix added) but the parquet columns keep the real `project_id`/`run_id`.
-  - Each run is split into `run_id_part_<n>.parquet` (Snappy-compressed); parts roll over around 50 MB compressed.
-- Files path (default `./exports/files`):
-  - Mirrors the sanitized project directory; file artifacts and file series are saved relative to that root.
-  - Kept separate from the parquet path so you can place potentially large artifacts on different/cheaper storage.
+  - Each run is split into `run_id_part_<n>.parquet` (Snappy-compressed). Parts roll over around 50 MB compressed.
+- Files path
+  - Default: `./exports/files`
+  - Mirrors the sanitized project directory. File artifacts and file series are saved relative to that root.
+  - Kept separate from the parquet path so you can place potentially large artifacts on different storage.
 
 ### Parquet schema
 
@@ -106,19 +123,19 @@ All records use `src/neptune_exporter/model.py::SCHEMA`:
 
 | Column | Type | Description |
 | --- | --- | --- |
-| `project_id` | string | Neptune project identifier (e.g., `workspace-name/project-name`) |
-| `run_id` | string | Neptune run identifier (Neptune 3.x: user-chosen or auto-generated, stored in `sys/custom_run_id`. Neptune 2.x: auto-generated `sys/id`, e.g. `SAN-1`) |
-| `attribute_path` | string | Full attribute path (e.g., `metrics/accuracy`, `metrics/loss`, `files/dataset_desc.json`) |
-| `attribute_type` | string | One of: `float`, `int`, `string`, `bool`, `datetime`, `string_set`, `float_series`, `string_series`, `histogram_series`, `file`, `file_series` |
-| `step` | decimal(18,6) | Decimal step value (per series/metric/file series) |
-| `timestamp` | timestamp(ms, UTC) | Populated for time-based records (metrics/series/file series); null for parameters/files |
-| `int_value`/`float_value`/`string_value`/`bool_value`/`datetime_value`/`string_set_value` | typed columns | Payload depending on `attribute_type` |
-| `file_value` | struct{path} | Relative path to downloaded file payload |
-| `histogram_value` | struct{type,edges,values} | Histogram payload |
+| `project_id` | `string` | Neptune project path, in the form `workspace-name/project-name`. |
+| `run_id` | `string` | Neptune run identifier.<ul><li>Neptune `3.x`: User-chosen or auto-generated, stored in `sys/custom_run_id`.</li><li>Neptune `2.x`: Auto-generated `sys/id`, e.g. `SAN-1`.</li></ul>  |
+| `attribute_path` | `string` | Full attribute path. For example, `metrics/accuracy`, `metrics/loss`, `files/dataset_desc.json`) |
+| `attribute_type` | `string` | One of: `float`, `int`, `string`, `bool`, `datetime`, `string_set`, `float_series`, `string_series`, `histogram_series`, `file`, `file_series` |
+| `step` | `decimal(18,6)` | Decimal step value, per series/metric/file series |
+| `timestamp` | `timestamp(ms, UTC)` | Populated for time-based records (metrics/series/file series).  Null for parameters and files. |
+| `int_value` / `float_value` / `string_value` / `bool_value` / `datetime_value` / `string_set_value` | typed columns | Payload depending on `attribute_type` |
+| `file_value` | `struct{path}` | Relative path to downloaded file payload |
+| `histogram_value` | `struct{type,edges,values}` | Histogram payload |
 
 ## Export flow
 
-- Runs are listed per project and streamed in batches; already-exported runs (those with `part_0.parquet`) are skipped so reruns are resumable.
+- Runs are listed per project and streamed in batches. Already-exported runs (those with `part_0.parquet`) are skipped so reruns are resumable.
 
   > [!WARNING]
   > Use this with care: if a run was exported and later received new data in Neptune, that new data will not be picked up unless you re-export to a fresh location.
@@ -127,30 +144,30 @@ All records use `src/neptune_exporter/model.py::SCHEMA`:
 - Artifacts and file series are downloaded alongside parquet under `--files-path/<sanitized_project_id>/...`.
 
 > [!NOTE]
-> A run is considered complete once `part_0.parquet` exists; use a fresh `--data-path` if you need a clean re-export.
+> A run is considered complete once `part_0.parquet` exists. If you need a clean re-export, use a fresh `--data-path`.
 
 ## Loading flow
 
 - Data is streamed run-by-run from parquet, using the same `--step-multiplier` to turn decimal steps into integers. Keep the multiplier consistent across loads when your Neptune steps are floats.
 - **MLflow loader**:
-  - Experiments are named `<project_id>/<experiment_name>` (prefixed with `--name-prefix` if provided).
+  - Experiments are named `<project_id>/<experiment_name>`, prefixed with `--name-prefix` if provided.
   - Attribute paths are sanitized to MLflow’s key rules (alphanumeric + `_-. /`, max 250 chars).
-  - Metrics/series use the integer step; files are uploaded as artifacts from `--files-path`.
+  - Metrics/series use the integer step. Files are uploaded as artifacts from `--files-path`.
   - MLflow saves parentship/fork relationships as tags (no native forks).
 - **W&B loader**:
-  - Requires `--wandb-entity`; project names derive from `project_id` (plus optional `--name-prefix`, sanitized).
-  - String series become W&B Tables, histograms use `wandb.Histogram`, files/file series become artifacts. Forked runs from Neptune 3.x are handled best-effort (W&B has limited preview support).
-- If a target run with the same name already exists in the experiment/project, the loader skips uploading that run to avoid duplicates.
+  - Requires `--wandb-entity`. Project names derive from `project_id`, plus optional `--name-prefix`, sanitized.
+  - String series become W&B Tables, histograms use `wandb.Histogram`, files/file series become artifacts. Forked runs from Neptune `3.x` are handled best-effort (W&B has limited preview support).
+- If a target run with the same name already exists in the experiment or project, the loader skips uploading that run to avoid duplicates.
 
 ## Experiment/run mapping to targets
 
 - **MLflow:**
   - Each unique `project_id` + `sys/name` pair becomes an MLflow experiment named `<project_id>/<sys/name>` (prefixed by `--name-prefix` if provided).
   - Runs are created inside that experiment using Neptune `run_id` (or `custom_run_id` when present) as the run name. Fork relationships are ignored by MLflow.
-- W&B:
+- **W&B:**
   - Neptune `project_id` maps to the W&B project name (sanitized, plus optional `--name-prefix`).
   - `sys/name` becomes the W&B group, so all runs with the same `sys/name` land in the same group.
-  - Runs are created with their Neptune `run_id` (or `custom_run_id`) as the run name. Forks from Neptune 3.x are mapped best-effort via `fork_from`; behavior depends on W&B’s fork support.
+  - Runs are created with their Neptune `run_id` (or `custom_run_id`) as the run name. Forks from Neptune `3.x` are mapped best-effort via `fork_from`; behavior depends on W&B's fork support.
 
 ## Attribute/type mapping (detailed)
 
@@ -178,6 +195,12 @@ For details on Neptune attribute types, see the [documentation](https://docs.nep
 ## Summary command
 
 `uv run neptune-exporter summary` reads parquet files and prints counts of projects/runs, attribute type breakdowns, and basic step stats to help you verify the export before loading.
+
+---
+
+&nbsp;
+
+> _To learn more about the Neptune acquisition and shutdown, see the [transition hub](https://docs.neptune.ai/transition_hub)._
 
 ## License
 
