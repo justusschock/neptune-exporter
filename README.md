@@ -19,13 +19,18 @@ Neptune Exporter is a CLI tool to move Neptune experiments (version `2.x` or `3.
   - MLflow tracking URI, set with `MLFLOW_TRACKING_URI` or `--mlflow-tracking-uri`.
   - W&B entity and API key, set with `WANDB_ENTITY`/`--wandb-entity` and `WANDB_API_KEY`/`--wandb-api-key`.
 
+## Installation
+
+> [!IMPORTANT]
+> This project is not published on PyPI. Clone the Git repository and run it directly with `uv`.
+
 Install dependencies in the repo:
 
 ```bash
 uv sync
 ```
 
-Run all CLI commands via uv:
+Run the CLI:
 
 ```bash
 uv run neptune-exporter --help
@@ -194,7 +199,7 @@ For details on Neptune attribute types, see the [documentation](https://docs.nep
 
 ## Summary command
 
-`uv run neptune-exporter summary` reads parquet files and prints counts of projects/runs, attribute type breakdowns, and basic step stats to help you verify the export before loading.
+The `uv run neptune-exporter summary` command reads parquet files and prints counts of projects and runs, attribute type breakdowns, and basic step stats to help you verify the export before loading.
 
 ---
 
