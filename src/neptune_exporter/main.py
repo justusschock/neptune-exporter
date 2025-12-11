@@ -381,7 +381,7 @@ def export(
 )
 @click.option(
     "--comet-api-key",
-    help="W&B API key for authentication. Only used with --loader comet.",
+    help="Comet API key for authentication. Only used with --loader comet.",
 )
 @click.option(
     "--name-prefix",
