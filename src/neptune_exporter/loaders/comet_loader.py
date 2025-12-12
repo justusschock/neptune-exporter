@@ -286,7 +286,7 @@ class CometLoader(DataLoader):
                 # Flush and close the file before passing to Comet
                 tmp_file.flush()
                 tmp_file.close()
-                
+
                 # Upload to Comet - it will read the file synchronously
                 self._comet_experiment.log_asset(
                     file_data=tmp_file_path,
