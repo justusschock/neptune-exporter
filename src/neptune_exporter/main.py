@@ -479,7 +479,7 @@ def load(
     \b
     # Load to Comet with API key
     neptune-exporter load --loader comet --comet-workspace "my-workspace" --comet-api-key "MY-COMET-API-KEY"
-    
+
     \b
     # Load to LitLogger (Lightning.ai)
     neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace
@@ -487,7 +487,7 @@ def load(
     \b
     # Load to LitLogger (Lightning.ai) with ID/Key authentication
     neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace --litlogger-api-key xxx --litlogger-user-id YYY
-    
+
     \b
     # Load to LitLogger (Lightning.ai) with prior login
     lightning login && neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace
