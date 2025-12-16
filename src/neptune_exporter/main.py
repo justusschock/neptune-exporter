@@ -31,6 +31,7 @@ from neptune_exporter.loaders.litlogger_loader import LitLoggerLoader
 from neptune_exporter.loaders.loader import DataLoader
 from neptune_exporter.loaders.mlflow_loader import MLflowLoader
 from neptune_exporter.loaders.wandb_loader import WandBLoader
+from neptune_exporter.loaders.comet_loader import CometLoader
 from neptune_exporter.storage.parquet_reader import ParquetReader
 from neptune_exporter.storage.parquet_writer import ParquetWriter
 from neptune_exporter.summary_manager import SummaryManager
@@ -360,7 +361,7 @@ def export(
 )
 @click.option(
     "--loader",
-    type=click.Choice(["mlflow", "wandb", "litlogger"], case_sensitive=False),
+    type=click.Choice(["mlflow", "wandb", "comet", "litlogger"], case_sensitive=False),
     help="Target platform loader to use.",
 )
 @click.option(
@@ -376,6 +377,14 @@ def export(
     help="W&B API key for authentication. Only used with --loader wandb.",
 )
 @click.option(
+    "--comet-workspace",
+    help="Comet workspace. Only used with --loader comet.",
+)
+@click.option(
+    "--comet-api-key",
+    help="Comet API key for authentication. Only used with --loader comet.",
+)
+@click.option(
     "--litlogger-teamspace",
     help="Lightning.ai teamspace name. Only used with --loader litlogger.",
 )
@@ -386,7 +395,6 @@ def export(
 @click.option(
     "--litlogger-user-id",
     help="Lightning.ai user ID for authentication. Only used with --loader litlogger.",
-)
 @click.option(
     "--name-prefix",
     help="Optional prefix for experiment/project and run names.",
@@ -425,11 +433,13 @@ def load(
     verbose: bool,
     log_file: Path,
     no_progress: bool,
+    comet_workspace: str | None,
+    comet_api_key: str | None,
 ) -> None:
-    """Load exported Neptune data from parquet files to target platforms (MLflow, W&B, or LitLogger).
+    """Load exported Neptune data from parquet files to target platforms (MLflow, W&B, Comet, or LitLogger).
 
     This tool loads previously exported Neptune data from parquet files
-    and uploads it to MLflow, Weights & Biases, or LitLogger for further analysis and tracking.
+    and uploads it to MLflow, Weights & Biases, Comet or LitLogger for further analysis and tracking.
 
     The log file specified with --log-file will have a timestamp suffix
     automatically added (e.g., neptune_exporter_20250115_143022.log) to ensure
@@ -444,6 +454,10 @@ def load(
     \b
     # Load to Weights & Biases
     neptune-exporter load --loader wandb --wandb-entity my-org
+
+    \b
+    # Load to Comet
+    neptune-exporter load --loader comet --comet-workspace "my-workspace"
 
     \b
     # Load specific projects
@@ -462,12 +476,20 @@ def load(
     neptune-exporter load --loader wandb --wandb-entity my-org --wandb-api-key xxx
 
     \b
+    # Load to Comet with API key
+    neptune-exporter load --loader comet --comet-workspace "my-workspace" --comet-api-key "MY-COMET-API-KEY"
+    
+    \b
     # Load to LitLogger (Lightning.ai)
     neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace
 
     \b
-    # Load to LitLogger with API key authentication
-    neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace --litlogger-api-key xxx
+    # Load to LitLogger (Lightning.ai) with ID/Key authentication
+    neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace --litlogger-api-key xxx --litlogger-user-id YYY
+    
+    \b
+    # Load to LitLogger (Lightning.ai) with prior login
+    lightning login && neptune-exporter load --loader litlogger --litlogger-teamspace my-teamspace
     """
     # Convert tuples to lists and handle None values
     project_ids_list = list(project_ids) if project_ids else None
@@ -501,6 +523,8 @@ def load(
         logger.info(f"  MLflow tracking URI: {mlflow_tracking_uri}")
     if wandb_entity:
         logger.info(f"  W&B entity: {wandb_entity}")
+    if comet_workspace:
+        logger.info(f"  Comet workspace: {comet_workspace}")
     if litlogger_teamspace:
         logger.info(f"  LitLogger teamspace: {litlogger_teamspace}")
     if name_prefix:
@@ -541,6 +565,29 @@ def load(
             show_client_logs=verbose,
         )
         loader_name = "W&B"
+    elif loader == "comet":
+        import comet_ml
+
+        if not comet_workspace:
+            comet_workspace = comet_ml.config.get_config("comet.workspace")
+            if not comet_workspace:
+                raise click.BadParameter(
+                    "Comet workspace is required when using --loader comet. You can set it as an environment variable COMET_WORKSPACE, provide it with --comet-workspace, or in a ~/.comet.config file."
+                )
+        if not comet_api_key:
+            comet_api_key = comet_ml.config.get_config("comet.api_key")
+            if not comet_api_key:
+                raise click.BadParameter(
+                    "Comet API key is required when using --loader comet. You can set it as an environment variable COMET_API_KEY, provide it with --comet-api-key, or in a ~/.comet.config file"
+                )
+
+        data_loader = CometLoader(
+            workspace=comet_workspace,
+            api_key=comet_api_key,
+            name_prefix=name_prefix,
+            show_client_logs=verbose,
+        )
+        loader_name = "Comet"
     elif loader == "litlogger":
         # Teamspace is optional for litlogger - uses default if not provided
         if not litlogger_teamspace:
@@ -573,9 +620,11 @@ def load(
 
     try:
         loader_manager.load(
-            project_ids=[ProjectId(project_id) for project_id in project_ids_list]
-            if project_ids_list
-            else None,
+            project_ids=(
+                [ProjectId(project_id) for project_id in project_ids_list]
+                if project_ids_list
+                else None
+            ),
             runs=[SourceRunId(run_id) for run_id in runs_list] if runs_list else None,
         )
         logger.info(f"{loader_name} loading completed successfully!")
