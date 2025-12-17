@@ -16,7 +16,6 @@
 """Loaders package for uploading data to target platforms."""
 
 from .loader import DataLoader
-from .litlogger_loader import LitLoggerLoader
 from .mlflow_loader import MLflowLoader
 from .wandb_loader import WandBLoader
 
@@ -26,6 +25,14 @@ except Exception:  # pragma: no cover - zenml and ZenMLLoader are optional
     ZenMLLoader = None  # type: ignore[misc,assignment]
     ZENML_AVAILABLE = False  # type: ignore[misc,assignment]
 
-__all__ = ["DataLoader", "LitLoggerLoader", "MLflowLoader", "WandBLoader"]
+try:
+    from .litlogger_loader import LitLoggerLoader, LITLOGGER_AVAILABLE
+except Exception:  # pragma: no cover - litlogger and LitLoggerLoader are optional
+    LitLoggerLoader = None  # type: ignore[misc,assignment]
+    LITLOGGER_AVAILABLE = False  # type: ignore[misc,assignment]
+
+__all__ = ["DataLoader", "MLflowLoader", "WandBLoader"]
+if LITLOGGER_AVAILABLE:
+    __all__.append("LitLoggerLoader")
 if ZENML_AVAILABLE:
     __all__.append("ZenMLLoader")

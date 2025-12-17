@@ -27,6 +27,13 @@ import pyarrow as pa
 from neptune_exporter.loaders.loader import DataLoader
 from neptune_exporter.types import ProjectId, TargetExperimentId, TargetRunId
 
+try:
+    import litlogger
+
+    LITLOGGER_AVAILABLE = True
+except ImportError:
+    LITLOGGER_AVAILABLE = False
+
 
 class LitLoggerLoader(DataLoader):
     """
@@ -77,6 +84,13 @@ class LitLoggerLoader(DataLoader):
             show_client_logs: Enable verbose logging from litlogger client.
                 Useful for debugging connection issues.
         """
+
+        if not LITLOGGER_AVAILABLE:
+            raise RuntimeError(
+                "LitLogger is not installed. Install with "
+                "`pip install 'neptune-exporter[litlogger]'` to use the LitLogger loader."
+            )
+
         # Configuration
         self.teamspace = teamspace
         self.name_prefix = name_prefix
@@ -436,7 +450,6 @@ class LitLoggerLoader(DataLoader):
         Raises:
             RuntimeError: If no pending experiment is configured
         """
-        import litlogger
 
         if self._pending_experiment is None:
             raise RuntimeError("No pending experiment")
